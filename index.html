@@ -1040,6 +1040,19 @@ try{setSkin(localStorage.getItem('ledger.skin')||'green',false)}catch(e){setSkin
 render();renderAcc();renderRec();
 $('recAdd').onclick=()=>openRec();
 /* ---------- Firebase login ---------- */
+/* ---------- 新版本提示：每次改版時，把 APP_VERSION 和 version.txt 一起加 1 ---------- */
+const APP_VERSION='3';
+async function checkUpdate(){
+  try{const r=await fetch('version.txt?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;
+    const v=(await r.text()).trim();if(!v||v===APP_VERSION)return;
+    const n=$('notice');n.dataset.kind='update';n.textContent='小豬有新版本了 ';
+    const b=document.createElement('button');b.type='button';b.className='linkbtn';b.textContent='立即更新';
+    b.onclick=()=>location.replace(location.pathname+'?v='+encodeURIComponent(v)+location.hash);
+    n.appendChild(b);n.hidden=false;
+  }catch(e){}
+}
+checkUpdate();
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkUpdate()});
 function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s)})}
 async function ensureFirebase(){
   if(window.firebase&&firebase.auth&&firebase.firestore)return true;

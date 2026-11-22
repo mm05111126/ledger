@@ -49,7 +49,10 @@
 
 *{box-sizing:border-box}
 :root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-body{margin:0}
+body{margin:0;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+/* iPhone 會在輸入框字小於 16px 時自動放大畫面，所以所有輸入框至少 16px */
+input,select,textarea{font-size:16px!important}
+.amount-in input{font-size:36px!important}
 img{max-width:100%}
 [hidden]{display:none!important}
 .login{position:fixed;inset:0;z-index:50;background:var(--bg);display:grid;place-items:center;overflow-y:auto;
@@ -62,6 +65,8 @@ img{max-width:100%}
 .login .btn{width:100%}
 .login .err,.login .ok{text-align:left}
 .ok{color:var(--inc);font-size:13px;margin:0}
+.eye{background:none;border:0;color:inherit;padding:2px 6px;margin-left:2px;vertical-align:middle;opacity:.9;border-radius:6px}
+.eye svg{width:18px;height:18px;display:block}
 .who{display:flex;justify-content:center;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
 body{background:var(--bg);color:var(--fg);font-family:var(--f-text);font-size:15px;line-height:1.5;-webkit-tap-highlight-color:transparent}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
@@ -297,7 +302,7 @@ input.f,select.f{font:inherit;color:var(--fg);background:var(--surface-2);border
     <section class="summary" aria-label="存款總覽">
       <button type="button" class="pig" id="pigS" aria-label="戳一下存錢小豬"></button>
       <div class="bal-wrap">
-        <div class="lbl">目前總存款</div>
+        <div class="lbl">目前總存款 <button type="button" class="eye" id="eyeBtn" aria-label="隱藏金額"></button></div>
         <div class="bal num" id="worth">NT$ 0</div>
       </div>
       <div class="row">
@@ -557,7 +562,7 @@ function subscribe(){
     txs=list;
     if(!meta||!meta.fromCache){loaded=true;clearTimeout(loadTimer);if($('notice').dataset.kind==='warn')notice(store.local?LOCAL_MSG:'')}
     render();
-  },e=>{loaded=true;clearTimeout(loadTimer);notice('讀取資料失敗（'+e.code+'），請重新整理頁面。','warn');render()});
+  },e=>{loaded=true;clearTimeout(loadTimer);warnWithReload('讀取資料失敗（'+(e&&e.code||'未知錯誤')+'）。');render()});
 }
 const LOCAL_MSG='目前是離線模式：資料只存在這支手機的瀏覽器。登入 claude.ai 開啟可自動雲端保存。';
 
@@ -760,9 +765,15 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 const ACC=[['bank','銀行','--c3','例如 台新銀行、郵局'],['cash','現金','--c2','例如 皮夾、撲滿'],['stock','存股','--c1','例如 0050 元大台灣50'],['pay','電子支付','--c4','例如 LINE Pay、街口'],['other','其他','--c8','例如 定存、外幣']];
 const accOf=k=>ACC.find(a=>a[0]===k)||ACC[ACC.length-1];
 let accs=[],accEdit=null,accKind='bank',accDelArmed=false;
+const EYE_ON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M3 3l18 18"/></svg>';
+let hideMoney=false;try{hideMoney=localStorage.getItem('ledger.hide')==='1'}catch(e){}
+$('eyeBtn').addEventListener('click',()=>{hideMoney=!hideMoney;try{localStorage.setItem('ledger.hide',hideMoney?'1':'0')}catch(e){}renderAcc();toast(hideMoney?'已隱藏存款金額':'已顯示存款金額')});
 function renderAcc(){
   const total=accs.reduce((s,a)=>s+(Number(a.amount)||0),0);
-  $('worth').textContent=(total<0?'−':'')+'NT$ '+fmt(Math.abs(total));
+  $('worth').textContent=hideMoney?'NT$ ＊＊＊＊':(total<0?'−':'')+'NT$ '+fmt(Math.abs(total));
+  $('eyeBtn').innerHTML=hideMoney?EYE_OFF:EYE_ON;
+  $('eyeBtn').setAttribute('aria-label',hideMoney?'顯示金額':'隱藏金額');
   $('accCount').textContent=accs.length;
   const last=accs.reduce((m,a)=>a.updated&&a.updated>m?a.updated:m,'');
   $('accUpd').textContent=last?(new Date(last).getMonth()+1)+'/'+new Date(last).getDate():'—';
@@ -770,7 +781,7 @@ function renderAcc(){
   const ratio=goal>0?Math.max(0,total)/goal:0;
   const reached=goal>0&&total>=goal;
   $('goalBar').style.width=Math.min(100,ratio*100)+'%';
-  if(goal>0){$('goalTxt').textContent='已存 '+Math.round(ratio*100)+'%（目標 '+fmt(goal)+'）';$('goalLeft').textContent=reached?'達成！':'還差 '+fmt(goal-total)}
+  if(goal>0){$('goalTxt').textContent='已存 '+Math.round(ratio*100)+'%'+(hideMoney?'':'（目標 '+fmt(goal)+'）');$('goalLeft').textContent=reached?'達成！':hideMoney?'還差 ＊＊＊＊':'還差 '+fmt(goal-total)}
   else{$('goalTxt').textContent='還沒有目標，設一個把小豬餵飽吧';$('goalLeft').textContent=''}
   const st=(reached?'rich':'happy')+Math.round(Math.min(1,ratio)*20);
   if(st!==pigSState){pigSState=st;$('pigS').innerHTML=pigSVG(reached?'rich':'happy',Math.min(1,ratio),'S')}
@@ -788,10 +799,10 @@ function renderAcc(){
   const order=k=>ACC.findIndex(a=>a[0]===k);
   accs.slice().sort((a,b)=>order(a.kind)-order(b.kind)||(b.amount-a.amount)).forEach(a=>{
     const c=accOf(a.kind);const b=document.createElement('button');b.type='button';b.className='tx';
-    b.innerHTML='<span class="ic" style="background:var('+c[2]+')">'+c[1][0]+'</span><span class="t"><b></b><small></small></span><span class="a num neu">'+(a.amount<0?'−':'')+fmt(Math.abs(a.amount))+'</span>';
+    b.innerHTML='<span class="ic" style="background:var('+c[2]+')">'+c[1][0]+'</span><span class="t"><b></b><small></small></span><span class="a num neu">'+(hideMoney?'＊＊＊＊':(a.amount<0?'−':'')+fmt(Math.abs(a.amount)))+'</span>';
     b.querySelector('b').textContent=a.name||c[1];
     let sub=c[1];
-    if(a.kind==='stock'&&a.shares)sub+=' · '+fmt(a.shares)+' 股'+(a.price?' × '+a.price:'');
+    if(!hideMoney&&a.kind==='stock'&&a.shares)sub+=' · '+fmt(a.shares)+' 股'+(a.price?' × '+a.price:'');
     if(a.updated){const u=new Date(a.updated);sub+=' · 更新於 '+(u.getMonth()+1)+'/'+u.getDate()}
     b.querySelector('small').textContent=sub;
     b.addEventListener('click',()=>openAcc(a));list.appendChild(b);
@@ -1029,7 +1040,24 @@ try{setSkin(localStorage.getItem('ledger.skin')||'green',false)}catch(e){setSkin
 render();renderAcc();renderRec();
 $('recAdd').onclick=()=>openRec();
 /* ---------- Firebase login ---------- */
-if(!window.firebase){notice('載入失敗，請確認網路後重新打開。','warn');return}
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s)})}
+async function ensureFirebase(){
+  if(window.firebase&&firebase.auth&&firebase.firestore)return true;
+  // 主要來源 (gstatic) 失敗時，改用備用來源
+  const base='https://cdn.jsdelivr.net/npm/firebase@10.12.2/';
+  try{for(const f of ['firebase-app-compat.js','firebase-auth-compat.js','firebase-firestore-compat.js'])await loadScript(base+f);
+    return !!(window.firebase&&firebase.auth&&firebase.firestore)}catch(e){return false}
+}
+function warnWithReload(msg){
+  const n=$('notice');n.dataset.kind='warn';n.textContent=msg+' ';
+  const b=document.createElement('button');b.type='button';b.className='linkbtn';b.textContent='重新載入';b.onclick=()=>location.reload();
+  n.appendChild(b);n.hidden=false;
+}
+(async()=>{
+  if(!(await ensureFirebase())){warnWithReload('連不上雲端服務，資料還沒載入。請確認網路，或暫時關閉廣告阻擋後再試。');return}
+  initFirebase();
+})();
+function initFirebase(){
 firebase.initializeApp(FIREBASE_CONFIG);
 const auth=firebase.auth();const fdb=firebase.firestore();
 try{fdb.enablePersistence({synchronizeTabs:true}).catch(()=>{})}catch(e){}
@@ -1037,7 +1065,7 @@ $('loginPig').innerHTML=pigSVG('happy',0,'G');
 let signUp=false;
 const AUTH_MSG={'auth/invalid-credential':'Email 或密碼不對','auth/wrong-password':'Email 或密碼不對','auth/user-not-found':'找不到這個帳號，要不要先建立一個？',
   'auth/email-already-in-use':'這個 Email 已經註冊過了，直接登入就好','auth/weak-password':'密碼至少要 6 個字','auth/invalid-email':'Email 格式不對',
-  'auth/too-many-requests':'嘗試太多次了，請稍後再試','auth/network-request-failed':'連不上網路，請檢查後再試','auth/missing-email':'請先輸入 Email'};
+  'auth/too-many-requests':'嘗試太多次了，請稍後再試','auth/network-request-failed':'連不上網路，請檢查後再試','auth/operation-not-allowed':'Firebase 還沒開啟 Email 登入功能','auth/missing-email':'請先輸入 Email'};
 const lErr=m=>{$('lOk').hidden=true;$('lErr').textContent=m;$('lErr').hidden=!m};
 $('lSwitch').onclick=()=>{signUp=!signUp;lErr('');$('lGo').textContent=signUp?'建立帳號':'登入';
   $('lSwitch').textContent=signUp?'已經有帳號了？登入':'還沒有帳號？建立一個';
@@ -1064,6 +1092,7 @@ function startApp(uid){
   store.watchAccounts(v=>{const first=!accLoaded;accs=v;accLoaded=true;renderAcc();renderBackup();if(first)catchUp()});
   store.watchRecurring(v=>{const first=!recLoaded;recs=v;recLoaded=true;renderRec();renderBackup();if(first)catchUp()});
   subscribe();
+}
 }
 })();
 </script>

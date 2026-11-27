@@ -657,8 +657,7 @@ function payOptions(){
     let label=a.name||accOf(a.kind)[1];if(a.kind==='cash'&&!label.includes('現金'))label='現金・'+label;
     return {key:a.id,acc:a.id,label,col:accOf(a.kind)[2]}});
   const names=new Set(list.map(o=>o.label));
-  if(!accs.some(a=>a.kind==='cash')&&!names.has('現金'))list.unshift({key:'l:現金',acc:null,label:'現金',col:'--c2'});
-  const gen=[];if(type==='exp')gen.push('信用卡');if(!accs.some(a=>a.kind==='pay'))gen.push('LINE Pay');
+  const gen=['現金'];if(type==='exp')gen.push('信用卡');if(!accs.some(a=>a.kind==='pay'))gen.push('LINE Pay');
   gen.forEach(l=>{if(!names.has(l))list.push({key:'l:'+l,acc:null,label:l,col:'--c8'})});
   return list;
 }
@@ -1045,7 +1044,7 @@ render();renderAcc();renderRec();
 $('recAdd').onclick=()=>openRec();
 /* ---------- Firebase login ---------- */
 /* ---------- 新版本提示：每次改版時，把 APP_VERSION 和 version.txt 一起加 1 ---------- */
-const APP_VERSION='4';
+const APP_VERSION='5';
 async function checkUpdate(){
   try{const r=await fetch('version.txt?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;
     const v=(await r.text()).trim();if(!v||v===APP_VERSION)return;

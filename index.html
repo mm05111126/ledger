@@ -652,9 +652,13 @@ function setType(t){type=t;$('tExp').setAttribute('aria-pressed',String(t==='exp
 /* ---------- payment method ---------- */
 let payKey='';
 function payOptions(){
-  const list=accs.filter(a=>a.kind!=='stock').map(a=>({key:a.id,acc:a.id,label:a.name||accOf(a.kind)[1],col:accOf(a.kind)[2]}));
-  const has=k=>accs.some(a=>a.kind===k);const names=new Set(list.map(o=>o.label));
-  const gen=[];if(!has('cash'))gen.push('現金');if(type==='exp')gen.push('信用卡');if(!has('pay'))gen.push('LINE Pay');
+  const ord={cash:0,pay:1,bank:2,other:3};
+  const list=accs.filter(a=>a.kind!=='stock').slice().sort((a,b)=>(ord[a.kind]??9)-(ord[b.kind]??9)).map(a=>{
+    let label=a.name||accOf(a.kind)[1];if(a.kind==='cash'&&!label.includes('現金'))label='現金・'+label;
+    return {key:a.id,acc:a.id,label,col:accOf(a.kind)[2]}});
+  const names=new Set(list.map(o=>o.label));
+  if(!accs.some(a=>a.kind==='cash')&&!names.has('現金'))list.unshift({key:'l:現金',acc:null,label:'現金',col:'--c2'});
+  const gen=[];if(type==='exp')gen.push('信用卡');if(!accs.some(a=>a.kind==='pay'))gen.push('LINE Pay');
   gen.forEach(l=>{if(!names.has(l))list.push({key:'l:'+l,acc:null,label:l,col:'--c8'})});
   return list;
 }
@@ -1041,7 +1045,7 @@ render();renderAcc();renderRec();
 $('recAdd').onclick=()=>openRec();
 /* ---------- Firebase login ---------- */
 /* ---------- 新版本提示：每次改版時，把 APP_VERSION 和 version.txt 一起加 1 ---------- */
-const APP_VERSION='3';
+const APP_VERSION='4';
 async function checkUpdate(){
   try{const r=await fetch('version.txt?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;
     const v=(await r.text()).trim();if(!v||v===APP_VERSION)return;
